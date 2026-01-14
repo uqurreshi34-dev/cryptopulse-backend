@@ -28,7 +28,7 @@ class CryptoPriceListView(ListAPIView):
 
 # Very common in production
 
-#  — prefix indicates intentionally unused - no yellow squiggly
+#  — prefix indicates request is intentionally unused - no yellow squiggly
 
 
 class CryptoPriceDetailView(View):
