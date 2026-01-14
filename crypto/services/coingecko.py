@@ -67,3 +67,5 @@ def fetch_and_store_crypto_prices():
         )
 
     CryptoPrice.objects.bulk_create(crypto_objects)
+    
+    return df

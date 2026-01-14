@@ -1,22 +1,28 @@
 from django.http import Http404
-from django.views import View
-from django.http import JsonResponse
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView
+from crypto.services.price_refresher import refresh_prices_if_stale
 from .models import CryptoPrice
 from .serializers import CryptoPriceSerializer
 
+# ListAPIView - Get multiple objects (a list)
+# RetrieveAPIView - Get a single specific object
+#  def get_queryset(self) and def get_object(self) called automatically
+# in RetrieveAPIView and ListAPIView
+# Create your views here. (class based views in this example)
 
-# Create your views here.
 
 class CryptoPriceListView(ListAPIView):
-    queryset = CryptoPrice.objects.all().order_by("-market_cap")
     serializer_class = CryptoPriceSerializer
+
+    def get_queryset(self):  # called automatically -> useful for refresh
+        refresh_prices_if_stale()  # refresh
+        return CryptoPrice.objects.all().order_by("-market_cap")
 
 # queryset and serializer_class are the 2 most fundamental
 # class attributes you will use when working with ListAPIView
 # queryset tells the view which db records it should retrieve
 # serializer_class tells the view which serializer to use to convert
-# those db records into JSON format
+# those db records into JSON format (NOT USING queryset anymore!)
 
 # Why ListAPIView?
 
@@ -31,23 +37,25 @@ class CryptoPriceListView(ListAPIView):
 #  — prefix indicates request is intentionally unused - no yellow squiggly
 
 
-class CryptoPriceDetailView(View):
-    def get(self, _request, symbol):
+class CryptoPriceDetailView(RetrieveAPIView):
+    serializer_class = CryptoPriceSerializer
+    # lookup_field is a built-in attribute in Django REST Framework's
+    # generic views (like RetrieveAPIView, UpdateAPIView, DestroyAPIView
+    # lookup_field = "symbol"
+
+    def get_queryset(self):
+        refresh_prices_if_stale()
+        return CryptoPrice.objects.all()
+
+    def get_object(self):  # e.g. self.kwargs = {'symbol': 'BTC'}
+        symbol = self.kwargs.get("symbol")
+
         try:
-            crypto = CryptoPrice.objects.filter(
+            return self.get_queryset().filter(
                 symbol__iexact=symbol
             ).latest("timestamp")
         except CryptoPrice.DoesNotExist as exc:
             raise Http404("Crypto symbol not found.") from exc
-
-        return JsonResponse({
-            "id": crypto.id,
-            "name": crypto.name,
-            "symbol": crypto.symbol,
-            "price_usd": float(crypto.price_usd),
-            "market_cap": float(crypto.market_cap),
-            "timestamp": crypto.timestamp.isoformat(),
-        })
 
 
 # symbol__iexact is built-in Django ORM syntax for case-insensitive
@@ -106,3 +114,31 @@ class CryptoPriceDetailView(View):
 
 # So yes, it's 100% built-in Django magic! The double underscore is
 # how Django does all its query filtering.
+
+# Yes, get_queryset() gets called automatically by Django's
+# generic views (like ListView, DetailView, etc.) when they need to fetch data.
+# When it's called:
+
+# When the view renders the page
+# Each time the view needs to access the queryset
+# Before applying any filtering, pagination, or ordering
+
+# Example:
+# pythonclass CryptoPriceListView(ListView):
+#     model = CryptoPrice
+
+#     def get_queryset(self):
+#         refresh_prices_if_stale()  # This runs automatically
+#         return CryptoPrice.objects.all()
+# When someone visits the URL mapped to this view, Django automatically
+# calls get_queryset() to fetch the data.
+# Key points:
+
+# You don't call it yourself in your code
+# Django's generic views call it internally
+# It's a hook/override point where you can customize the queryset
+# It runs on every request to that view
+
+# If you're NOT using a generic view (like if you have a plain
+# function-based view), then get_queryset() wouldn't be called
+# automatically—you'd need to call methods manually.

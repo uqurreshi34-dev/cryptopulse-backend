@@ -12,3 +12,10 @@ class CryptoPrice(models.Model):
 
     def __str__(self):
         return f"{self.symbol} - {self.price_usd}"
+
+
+class DataRefreshStatus(models.Model):
+    last_updated = models.DateTimeField()
+
+    def __str__(self):
+        return f"Last refresh: {self.last_updated}"
