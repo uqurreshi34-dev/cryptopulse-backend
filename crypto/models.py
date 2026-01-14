@@ -1,0 +1,14 @@
+from django.db import models
+
+# Create your models here.
+
+
+class CryptoPrice(models.Model):
+    symbol = models.CharField(max_length=10)
+    name = models.CharField(max_length=50)
+    price_usd = models.DecimalField(max_digits=15, decimal_places=2)
+    market_cap = models.BigIntegerField()
+    timestamp = models.DateTimeField()
+
+    def __str__(self):
+        return f"{self.symbol} - {self.price_usd}"

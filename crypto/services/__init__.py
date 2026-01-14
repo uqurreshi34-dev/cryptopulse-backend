@@ -1,0 +1,1 @@
+from .coingecko import fetch_and_store_crypto_prices
