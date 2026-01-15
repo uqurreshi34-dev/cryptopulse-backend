@@ -11,6 +11,7 @@ class CryptoPriceSerializer(serializers.ModelSerializer):
             "name",
             "price_usd",
             "market_cap",
-            "timestamp"
+            "timestamp",
+            "coingecko_id"
         ]
 # Serializer = JSON schema + validation.

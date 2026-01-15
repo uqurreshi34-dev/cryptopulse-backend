@@ -9,6 +9,8 @@ class CryptoPrice(models.Model):
     price_usd = models.DecimalField(max_digits=15, decimal_places=2)
     market_cap = models.BigIntegerField()
     timestamp = models.DateTimeField()
+    # New field - can be null for coins we can't map
+    coingecko_id = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return f"{self.symbol} - {self.price_usd}"

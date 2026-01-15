@@ -6,15 +6,79 @@ from django.utils import timezone
 
 
 COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets"
-# Load from environment (fail early if missing)
-COINGECKO_API_KEY = os.environ.get('COINGECKO_API_KEY')
+# New: no key needed!
+COINGECKO_LIST_URL = "https://api.coingecko.com/api/v3/coins/list"
 
-if not COINGECKO_API_KEY:
-    raise ValueError("Missing COINGECKO_API_KEY environment variable! "
-                     "Add it in Render Dashboard > Environment variables.")
+
+class CoinGeckoCache:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            # We still create attributes here (singleton init)
+        return cls._instance
+
+    def __init__(self):
+        # This runs only once per singleton instance
+        # Prevent re-init on subsequent calls
+        if not hasattr(self, '_initialized'):
+            self._coin_list = None
+            self._symbol_to_id = {}
+            self._name_to_id = {}
+            self._initialized = True
+
+    def load_mapping(self):
+        if self._coin_list is not None:
+            return
+
+        try:
+            resp = requests.get(COINGECKO_LIST_URL, timeout=15)
+            resp.raise_for_status()
+            self._coin_list = resp.json()
+
+            for coin in self._coin_list:
+                sym = coin['symbol'].lower()
+                name_clean = coin['name'].lower().replace(
+                    ' ', '-').replace('.', '').replace('(', '').replace(')', '')
+                self._symbol_to_id[sym] = coin['id']
+                self._name_to_id[name_clean] = coin['id']
+
+            print(f"Loaded {len(self._coin_list)} coins from CoinGecko list")
+        except Exception as e:
+            print(f"Failed to load coin list: {e}")
+            self._coin_list = []
+
+    def get_coingecko_id(self, symbol: str, name: str = None) -> str | None:
+        self.load_mapping()
+
+        sym_lower = symbol.lower()
+        if sym_lower in self._symbol_to_id:
+            return self._symbol_to_id[sym_lower]
+
+        if name:
+            name_clean = (name.lower().replace(' ', '-').replace('.', '').
+                          replace('(', '').replace(')', ''))
+
+            if name_clean in self._name_to_id:
+                return self._name_to_id[name_clean]
+
+        print(f"No CoinGecko ID found for {symbol} ({name})")
+        return None
+
+
+# Singleton instance
+coin_cache = CoinGeckoCache()
 
 
 def fetch_and_store_crypto_prices():
+
+    # Load from environment (fail early if missing)
+    COINGECKO_API_KEY = os.environ.get('COINGECKO_API_KEY')
+
+    if not COINGECKO_API_KEY:
+        raise ValueError("Missing COINGECKO_API_KEY environment variable! "
+                         "Add it in Render Dashboard > Environment variables.")
     params = {
         "vs_currency": "usd",
         "order": "market_cap_desc",
@@ -85,13 +149,15 @@ def fetch_and_store_crypto_prices():
     # index=False: Excludes the row index from the tuple
     crypto_objects = []
     for row in df.itertuples(index=False):
+        cg_id = coin_cache.get_coingecko_id(row.symbol, row.name)
         crypto_objects.append(
             CryptoPrice(
                 symbol=row.symbol.upper(),
                 name=row.name,
                 price_usd=row.price_usd,
                 market_cap=row.market_cap,
-                timestamp=timestamp
+                timestamp=timestamp,
+                coingecko_id=cg_id  # ← Save it!
             )
         )
 
