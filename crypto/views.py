@@ -3,6 +3,8 @@ from rest_framework.generics import ListAPIView, RetrieveAPIView
 from crypto.services.price_refresher import refresh_prices_if_stale
 from .models import CryptoPrice
 from .serializers import CryptoPriceSerializer
+from django.http import JsonResponse
+from crypto.models import DataRefreshStatus
 
 # ListAPIView - Get multiple objects (a list)
 # RetrieveAPIView - Get a single specific object
@@ -56,6 +58,18 @@ class CryptoPriceDetailView(RetrieveAPIView):
             ).latest("timestamp")
         except CryptoPrice.DoesNotExist as exc:
             raise Http404("Crypto symbol not found.") from exc
+
+# _request means: “this argument is required but intentionally unused”
+# Django always sends a request object even if we dont use it
+# The below is a function based view
+
+
+def refresh_status_view(_request):
+    status = DataRefreshStatus.objects.first()
+
+    return JsonResponse({
+        "last_updated": status.last_updated.isoformat() if status else None
+    })
 
 
 # symbol__iexact is built-in Django ORM syntax for case-insensitive
@@ -142,3 +156,9 @@ class CryptoPriceDetailView(RetrieveAPIView):
 # If you're NOT using a generic view (like if you have a plain
 # function-based view), then get_queryset() wouldn't be called
 # automatically—you'd need to call methods manually.
+
+
+# Situation	Needs self?
+# Function-based view	❌ No
+# Class-based view method	✅ Yes
+# Django always passes request	✅ Yes

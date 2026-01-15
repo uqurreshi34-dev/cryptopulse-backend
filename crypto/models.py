@@ -13,6 +13,10 @@ class CryptoPrice(models.Model):
     def __str__(self):
         return f"{self.symbol} - {self.price_usd}"
 
+# obviously initially, there will be no last_updated, so if
+# we leave DateTimeField() like so, we'll get integrity error for null value
+# we're saying “If no refresh has ever happened, treat it as ‘now’
+
 
 class DataRefreshStatus(models.Model):
     last_updated = models.DateTimeField(default=now)
