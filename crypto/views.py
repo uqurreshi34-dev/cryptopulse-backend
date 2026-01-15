@@ -1,10 +1,10 @@
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from crypto.services.price_refresher import refresh_prices_if_stale
+from crypto.models import DataRefreshStatus
 from .models import CryptoPrice
 from .serializers import CryptoPriceSerializer
-from django.http import JsonResponse
-from crypto.models import DataRefreshStatus
+
 
 # ListAPIView - Get multiple objects (a list)
 # RetrieveAPIView - Get a single specific object
