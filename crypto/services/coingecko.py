@@ -1,3 +1,4 @@
+import os
 import requests
 import pandas as pd
 from crypto.models import CryptoPrice
@@ -5,6 +6,12 @@ from django.utils import timezone
 
 
 COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets"
+# Load from environment (fail early if missing)
+COINGECKO_API_KEY = os.environ.get('COINGECKO_API_KEY')
+
+if not COINGECKO_API_KEY:
+    raise ValueError("Missing COINGECKO_API_KEY environment variable! "
+                     "Add it in Render Dashboard > Environment variables.")
 
 
 def fetch_and_store_crypto_prices():
@@ -14,12 +21,34 @@ def fetch_and_store_crypto_prices():
         "per_page": 50,
         "page": 1,
         "sparkline": False
+        # Optional but useful: "locale": "en", "price_change_percentage": "24h"
     }
 
-    response = requests.get(COINGECKO_URL, params=params, timeout=30)
-    response.raise_for_status()
+    headers = {
+        "x-cg-demo-api-key": COINGECKO_API_KEY,  # ← Correct header name!
+        "Accept": "application/json",            # Good practice
+        # Helps avoid blocks
+        "User-Agent": "crypto-backend/1.0 (u.qurreshi34@gmail.com)"
+    }
 
-    data = response.json()
+    try:
+        response = requests.get(COINGECKO_URL, params=params,
+                                headers=headers, timeout=30)
+
+        response.raise_for_status()
+
+        data = response.json()
+
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 429:
+            print(
+                "Rate limit hit (429) - Demo plan: ~30 calls/min. Wait a bit.")
+        raise
+
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        raise
+
     df = pd.DataFrame(data)
 
     # 🔍 Keep only columns we care about
